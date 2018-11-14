@@ -1,0 +1,6 @@
+*
+!.*
+!Src/*
+!Inc/*
+!*.ioc
+*GS1001_Datasheet.pdf

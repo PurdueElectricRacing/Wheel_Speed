@@ -1,6 +1,9 @@
 *
+!.gitignore
 !.*
+!Src
+!Inc
 !Src/*
 !Inc/*
 !*.ioc
-*GS1001_Datasheet.pdf
+!GS1001_Datasheet.pdf

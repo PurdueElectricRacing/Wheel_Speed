@@ -3,6 +3,7 @@
 
 #include "main.h"
 #include "stm32f4xx_hal.h"
+#include "hall_effect_sensors.h"
 
 #define RIGHT_WHEEL_TIM TIM3
 #define LEFT_WHEEL_TIM 	TIM2
@@ -23,9 +24,11 @@ typedef struct
 	uint32_t 			time_n_minus_1;
 	uint32_t			timer_count;
 	uint32_t			speed;
+	uint8_t 			broken;
 } gs1001_t;
 
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
+//void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
+void calculate_wheel_speed(TIM_HandleTypeDef *htim);
 void init_gs1001(gs1001_t * sensor, TIM_HandleTypeDef *htim);
 
 

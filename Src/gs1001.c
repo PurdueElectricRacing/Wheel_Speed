@@ -20,51 +20,6 @@ extern gs1001_t g_left_wheel;
 extern gs1001_t g_right_wheel;
 
 
-/** void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
- * 	-- Input Compare capture callback handler
- *
- *		@param: TIM_HandleTypeDef *htim
- *		@brief: Calculates the wheel speed in RPM and stores it as an integer,
- *				scaled up by 10000 to avoid sending floats over CAN
- *		@retvalue: none
- *	  **/
-
-void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
-{
-	gs1001_t * sensor;
-	uint32_t time_delta = 0;
-	float speed = 0;
-
-	//each sensor has a pointer to its corresponding TIM_HandleTypeDef
-	if (htim->Instance == LEFT_WHEEL_TIM)
-	{
-		sensor = &g_left_wheel;
-	}
-	else
-	{
-		sensor = &g_right_wheel;
-	}
-
-	//hit counter for the teeth
-	sensor->count++;
-	//get the current timer value for the sensor
-	sensor->timer_count = __HAL_TIM_GET_COUNTER(htim);
-
-	sensor->time_n_minus_1 = sensor->time_n;
-	sensor->time_n = __HAL_TIM_GET_COMPARE(htim, TIM_CHANNEL_2);		//current time gets stored in the sensor's current time stamp
-	time_delta = sensor->time_n - sensor->time_n_minus_1;
-
-	//if the time delta > 0, then we calculate speed, otherwise we divide by 0
-	if (time_delta > 0)
-	{
-
-		speed = (TOOTH_COUNT * 1000 * 60 * ( TOOTH_ANGLE / time_delta) ) / 360;
-		sensor->speed = SCALAR * speed;
-	}
-
-}
-
-
 /** void init_gs1001(gs1001_t *sensor, TIM_HandleTypeDef *htim)
  *
  *		@param: gs1001_t * sensor, TIM_HandleTypeDef *htim
@@ -81,7 +36,54 @@ void init_gs1001(gs1001_t *sensor, TIM_HandleTypeDef *htim)
 	sensor->time_n_minus_1 = 0;
 	sensor->speed = 0;
 	sensor->timer_count = 0;
+	sensor->broken = 0;
 
-	HAL_TIM_IC_Start_IT(htim, TIM_CHANNEL_2);
+	if (HAL_TIM_IC_Start_IT(htim, TIM_CHANNEL_2) != HAL_OK)
+	{
+		sensor->broken = 1;
+	}
 
 }
+
+/**void calculate_wheel_speed(TIM_HandleTypDef *htim)
+ * 		@param: TIM_HandleTypeDef *htim,
+ * 		@brief: calculates the wheel speed and stores it in the corresponding struct's speed variable
+ * 				the final spped value in the struct is a uint32_t which the float value was multiplied by 10000
+ *
+ * 		@revalue: none
+ * */
+
+void calculate_wheel_speed(TIM_HandleTypeDef *htim)
+{
+		gs1001_t * sensor;
+		uint32_t time_delta = 0;
+		float speed = 0;
+
+		//each sensor has a pointer to its corresponding TIM_HandleTypeDef
+		if (htim->Instance == LEFT_WHEEL_TIM)
+		{
+			sensor = &g_left_wheel;
+		}
+		else if (htim->Instance == RIGHT_WHEEL_TIM)
+		{
+			sensor = &g_right_wheel;
+		}
+
+		//hit counter for the teeth
+		sensor->count++;
+		//get the current timer value for the sensor
+		sensor->timer_count = __HAL_TIM_GET_COUNTER(htim);
+
+		sensor->time_n_minus_1 = sensor->time_n;
+		sensor->time_n = __HAL_TIM_GET_COMPARE(htim, TIM_CHANNEL_2);		//current time gets stored in the sensor's current time stamp
+		time_delta = sensor->time_n - sensor->time_n_minus_1;
+
+		//if the time delta > 0, then we calculate speed, otherwise we divide by 0
+		if (time_delta > 0)
+		{
+			speed = (TOOTH_COUNT * 1000 * 60 * ( TOOTH_ANGLE / time_delta) ) / 360;
+			sensor->speed = SCALAR * speed;
+		}
+}
+
+

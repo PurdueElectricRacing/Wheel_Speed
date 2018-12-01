@@ -69,6 +69,7 @@ TIM_HandleTypeDef htim3;
 /* Private variables ---------------------------------------------------------*/
 gs1001_t g_left_wheel;
 gs1001_t g_right_wheel;
+ins_fm17_t g_koolance;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/

@@ -1,10 +1,9 @@
 #ifndef INS_FM17N_H
 #define INS_FM17N_H
 
-#include "main.h"
-#include "stm32f4xx_hal.h"
+#include "hall_effect_sensors.h"
 
-#define KOOLANCE_TIM   TIM5
+//#define KOOLANCE_TIM   TIM5
 
 typedef struct
 {
@@ -18,5 +17,8 @@ typedef struct
 } ins_fm17n_t;
 
 
-void calculate_flow_speed(TIM_HandleTypeDef *htim);
+//void calculate_flow_speed(TIM_HandleTypeDef *htim);
 void init_ins_fm17n(TIM_HandleTypeDef *htim, ins_fm17n_t * sensor);
+
+
+#endif

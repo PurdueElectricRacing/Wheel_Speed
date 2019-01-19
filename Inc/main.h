@@ -10,7 +10,7 @@
   * inserted by the user or by software development tools
   * are owned by their respective copyright owners.
   *
-  * Copyright (c) 2018 STMicroelectronics International N.V. 
+  * Copyright (c) 2019 STMicroelectronics International N.V. 
   * All rights reserved.
   *
   * Redistribution and use in source and binary forms, with or without 
@@ -75,6 +75,8 @@
 #define PDM_OUT_GPIO_Port GPIOC
 #define Left_Sensor_Input_Pin GPIO_PIN_1
 #define Left_Sensor_Input_GPIO_Port GPIOA
+#define right_sensor_Pin GPIO_PIN_2
+#define right_sensor_GPIO_Port GPIOA
 #define I2S3_WS_Pin GPIO_PIN_4
 #define I2S3_WS_GPIO_Port GPIOA
 #define SPI1_SCK_Pin GPIO_PIN_5
@@ -109,6 +111,8 @@
 #define SWDIO_GPIO_Port GPIOA
 #define SWCLK_Pin GPIO_PIN_14
 #define SWCLK_GPIO_Port GPIOA
+#define coolant_Pin GPIO_PIN_15
+#define coolant_GPIO_Port GPIOA
 #define I2S3_SCK_Pin GPIO_PIN_10
 #define I2S3_SCK_GPIO_Port GPIOC
 #define I2S3_SD_Pin GPIO_PIN_12
@@ -119,8 +123,6 @@
 #define OTG_FS_OverCurrent_GPIO_Port GPIOD
 #define SWO_Pin GPIO_PIN_3
 #define SWO_GPIO_Port GPIOB
-#define right_wheel_sensor_Pin GPIO_PIN_5
-#define right_wheel_sensor_GPIO_Port GPIOB
 #define Audio_SCL_Pin GPIO_PIN_6
 #define Audio_SCL_GPIO_Port GPIOB
 #define Audio_SDA_Pin GPIO_PIN_9

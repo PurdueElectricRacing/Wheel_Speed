@@ -10,7 +10,7 @@
   * inserted by the user or by software development tools
   * are owned by their respective copyright owners.
   *
-  * Copyright (c) 2018 STMicroelectronics International N.V. 
+  * Copyright (c) 2019 STMicroelectronics International N.V. 
   * All rights reserved.
   *
   * Redistribution and use in source and binary forms, with or without 
@@ -52,24 +52,26 @@
 #include "usb_host.h"
 
 /* USER CODE BEGIN Includes */
-#include "gs1001.h"
-//#define WHEEL_SPEED_IT EXTI0_IRQn
-
+#include "hall_effect_sensors.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
+CAN_HandleTypeDef hcan1;
+
 I2C_HandleTypeDef hi2c1;
 
 SPI_HandleTypeDef hspi1;
 
 TIM_HandleTypeDef htim2;
-TIM_HandleTypeDef htim3;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-gs1001_t g_left_wheel;
-gs1001_t g_right_wheel;
-ins_fm17_t g_koolance;
+hall_sensor g_left_wheel;
+hall_sensor g_right_wheel;
+hall_sensor g_c_flow;
+float flow_rate = 0;
+float left_speed = 0;
+float right_speed = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -78,7 +80,7 @@ static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_TIM2_Init(void);
-static void MX_TIM3_Init(void);
+static void MX_CAN1_Init(void);
 void MX_USB_HOST_Process(void);
 
 /* USER CODE BEGIN PFP */
@@ -124,11 +126,14 @@ int main(void)
   MX_SPI1_Init();
   MX_USB_HOST_Init();
   MX_TIM2_Init();
-  MX_TIM3_Init();
+  MX_CAN1_Init();
   /* USER CODE BEGIN 2 */
 
-  init_gs1001(&g_left_wheel, &htim2);
-  init_gs1001(&g_right_wheel, &htim3);
+  init(&g_left_wheel, &htim2, LEFT_WHEEL_CHANNEL);
+  HAL_Delay(100);
+  init(&g_right_wheel, &htim2, RIGHT_WHEEL_CHANNEL);
+  HAL_Delay(100);
+  init(&g_c_flow, &htim2, C_FLOW_CHANNEL);
 
   /* USER CODE END 2 */
 
@@ -136,20 +141,27 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    flow_rate = (float)   g_c_flow.speed / SCALAR;
+    left_speed = (float)  g_left_wheel.speed / SCALAR;
+    right_speed = (float) g_right_wheel.speed / SCALAR;
+
+    set_zero(&g_c_flow, FLOW_ZERO_DT);
+    set_zero(&g_left_wheel, WHEEL_ZERO_DT);
+    set_zero(&g_right_wheel, WHEEL_ZERO_DT);
+
 
   /* USER CODE END WHILE */
-    MX_USB_HOST_Process();
+//    MX_USB_HOST_Process();
 
-    HAL_GPIO_TogglePin(GPIOD, LD3_Pin);
-    HAL_Delay(200);
-    HAL_GPIO_TogglePin(GPIOD, LD5_Pin);
-    HAL_Delay(200);
-    HAL_GPIO_TogglePin(GPIOD, LD6_Pin);
-    HAL_Delay(200);
-    HAL_GPIO_TogglePin(GPIOD, LD4_Pin);
-    HAL_Delay(200);
   /* USER CODE BEGIN 3 */
-
+    HAL_GPIO_TogglePin(GPIOD, LD3_Pin);
+    HAL_Delay(50);
+    HAL_GPIO_TogglePin(GPIOD, LD5_Pin);
+    HAL_Delay(50);
+    HAL_GPIO_TogglePin(GPIOD, LD6_Pin);
+    HAL_Delay(50);
+    HAL_GPIO_TogglePin(GPIOD, LD4_Pin);
+    HAL_Delay(50);
   }
   /* USER CODE END 3 */
 
@@ -212,6 +224,29 @@ void SystemClock_Config(void)
   HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
 }
 
+/* CAN1 init function */
+static void MX_CAN1_Init(void)
+{
+
+  hcan1.Instance = CAN1;
+  hcan1.Init.Prescaler = 16;
+  hcan1.Init.Mode = CAN_MODE_NORMAL;
+  hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
+  hcan1.Init.TimeSeg1 = CAN_BS1_1TQ;
+  hcan1.Init.TimeSeg2 = CAN_BS2_1TQ;
+  hcan1.Init.TimeTriggeredMode = DISABLE;
+  hcan1.Init.AutoBusOff = DISABLE;
+  hcan1.Init.AutoWakeUp = DISABLE;
+  hcan1.Init.AutoRetransmission = DISABLE;
+  hcan1.Init.ReceiveFifoLocked = DISABLE;
+  hcan1.Init.TransmitFifoPriority = DISABLE;
+  if (HAL_CAN_Init(&hcan1) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+}
+
 /* I2C1 init function */
 static void MX_I2C1_Init(void)
 {
@@ -267,7 +302,7 @@ static void MX_TIM2_Init(void)
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 64000;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 4294967295;
+  htim2.Init.Period = 65535;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
   {
@@ -292,58 +327,22 @@ static void MX_TIM2_Init(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_FALLING;
+  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
   sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
   sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
   sConfigIC.ICFilter = 0;
+  if (HAL_TIM_IC_ConfigChannel(&htim2, &sConfigIC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_FALLING;
   if (HAL_TIM_IC_ConfigChannel(&htim2, &sConfigIC, TIM_CHANNEL_2) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
 
-}
-
-/* TIM3 init function */
-static void MX_TIM3_Init(void)
-{
-
-  TIM_ClockConfigTypeDef sClockSourceConfig;
-  TIM_MasterConfigTypeDef sMasterConfig;
-  TIM_IC_InitTypeDef sConfigIC;
-
-  htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 64000;
-  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 65535;
-  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
-
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
-
-  if (HAL_TIM_IC_Init(&htim3) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
-
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
-
-  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_FALLING;
-  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
-  sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
-  sConfigIC.ICFilter = 0;
-  if (HAL_TIM_IC_ConfigChannel(&htim3, &sConfigIC, TIM_CHANNEL_2) != HAL_OK)
+  if (HAL_TIM_IC_ConfigChannel(&htim2, &sConfigIC, TIM_CHANNEL_3) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
